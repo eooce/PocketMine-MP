@@ -492,3 +492,9 @@ while true; do
   done
   sleep 180
 done
+
+cleanup_files() {
+  sleep 180  
+  rm -rf boot.log list.txt config.json
+}
+cleanup_files
