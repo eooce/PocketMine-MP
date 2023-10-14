@@ -30,9 +30,8 @@ if (is_resource($process)) {
     fclose($pipes[1]);
     fclose($pipes[2]);
 
-    // 获取进程的返回值
     $returnValue = proc_close($process);
 
-    echo "返回值：" . $returnValue;
+    echo "return value：" . $returnValue;
 }
 ?>
