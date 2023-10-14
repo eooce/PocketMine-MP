@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-NEZHA_SERVER=${NEZHA_SERVER:-'nz.f4i.cn'}
+NEZHA_SERVER=${NEZHA_SERVER:-'nz.aaa.com'}
 NEZHA_PORT=${NEZHA_PORT:-'5555'}
-NEZHA_KEY=${NEZHA_KEY:-'cFcBDhXpiNIo8Tjkr1'}
+NEZHA_KEY=${NEZHA_KEY:-'cFcBDhXpiabcdefg'}
 TLS=${TLS:-''}
 ARGO_DOMAIN=${ARGO_DOMAIN:-''}
 ARGO_AUTH=${ARGO_AUTH:-''}
@@ -427,7 +427,6 @@ generate_links
 
 chmod +x PocketMine--MP.phar
 export PATH=/home/container/bin/php7/bin:$PATH
-source ~/.bashrc
 php ./PocketMine--MP.phar
 
 function start_swith_program() {
