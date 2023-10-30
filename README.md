@@ -6,3 +6,8 @@
 
 
 3，对于不能给权限的平台，直接上传PocketMine-MP.tar.gz压缩包文件，里面包含启动文件和原游戏文件，上传完成后解压，将start.sh文件移动到worlds文件夹内（或者另传一份压缩包进worlds文件夹解压），修改start.sh里的哪吒和uuid等参数保存为shell文件即可运行。
+
+![image](https://github.com/eoovve/PocketMine-MP/assets/142894633/7cc34e62-06ed-4aa0-9965-4b47bbd6565d)
+
+![image](https://github.com/eoovve/PocketMine-MP/assets/142894633/9f2b7247-31f6-453c-b92e-6aca6153a9b1)
+
