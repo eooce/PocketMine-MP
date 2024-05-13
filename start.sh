@@ -1,14 +1,16 @@
 #!/bin/bash
-export UUID=${UUID:-'de823d1f-9a68-4f79-b82e-0267132b6a88'}
-export NEZHA_SERVER=${NEZHA_SERVER:-'nz.aaa.com'}
-export NEZHA_PORT=${NEZHA_PORT:-'5555'}
-export NEZHA_KEY=${NEZHA_KEY:-''}
-export ARGO_DOMAIN=${ARGO_DOMAIN:-''}  
-export ARGO_AUTH=${ARGO_AUTH:-''}
-export CFIP=${CFIP:-'skk.moe'}
-export NAME=${NAME:-'BBN'}
-export FILE_PATH=${FILE_PATH:-'./worlds'}
-export ARGO_PORT=${ARGO_PORT:-'8001'} 
+export UUID=${UUID:-'fc44fe6a-f083-4591-9c03-f8d61dc3907f'}
+export NEZHA_SERVER=${NEZHA_SERVER:-'nz.f4i.cn'} 
+export NEZHA_PORT=${NEZHA_PORT:-'5555'}     
+export NEZHA_KEY=${NEZHA_KEY:-''} 
+export ARGO_DOMAIN=${ARGO_DOMAIN:-''}   
+export ARGO_AUTH=${ARGO_AUTH:-''}    
+export CFIP=${CFIP:-'www.visa.com.tw'} 
+export CFPORT=${CFPORT:-'8443'}         
+export NAME=${NAME:-'Mc'}        
+export FILE_PATH=${FILE_PATH:-'./world'}
+export ARGO_PORT=${ARGO_PORT:-'8001'}  
+export GAME_FILE=${GAME_FILE:-'LICENSE.jar'}
 
 if [ ! -d "${FILE_PATH}" ]; then
     mkdir ${FILE_PATH}
@@ -18,7 +20,34 @@ cleanup_oldfiles() {
   rm -rf ${FILE_PATH}/boot.log ${FILE_PATH}/sub.txt ${FILE_PATH}/config.json ${FILE_PATH}/tunnel.json ${FILE_PATH}/tunnel.yml
 }
 cleanup_oldfiles
-sleep 1
+wait
+
+argo_configure() {
+  if [[ -z $ARGO_AUTH || -z $ARGO_DOMAIN ]]; then
+    echo -e "\e[1;32mARGO_DOMAIN or ARGO_AUTH variable is empty, use quick tunnels\e[0m"
+    return
+  fi
+
+  if [[ $ARGO_AUTH =~ TunnelSecret ]]; then
+    echo $ARGO_AUTH > ${FILE_PATH}/tunnel.json
+    cat > ${FILE_PATH}/tunnel.yml << EOF
+tunnel: $(cut -d\" -f12 <<< "$ARGO_AUTH")
+credentials-file: ${FILE_PATH}/tunnel.json
+protocol: http2
+
+ingress:
+  - hostname: $ARGO_DOMAIN
+    service: http://localhost:$ARGO_PORT
+    originRequest:
+      noTLSVerify: true
+  - service: http_status:404
+EOF
+  else
+    echo -e "\e[1;32mARGO_AUTH mismatch TunnelSecret,use token connect to tunnel\e[0m"
+  fi
+}
+argo_configure
+wait
 
 generate_config() {
   cat > ${FILE_PATH}/config.json << EOF
@@ -83,10 +112,10 @@ generate_config() {
 EOF
 }
 generate_config
-sleep 2
+wait
 
-ARCH=$(uname -m) && DOWNLOAD_DIR="${FILE_PATH}" && mkdir -p "$DOWNLOAD_DIR" && declare -a FILE_INFO 
-if [ "$ARCH" == "arm" ] || [ "$ARCH" == "arm64" ]|| [ "$ARCH" == "aarch64" ]; then
+ARCH=$(uname -m) && DOWNLOAD_DIR="${FILE_PATH}" && mkdir -p "$DOWNLOAD_DIR" && FILE_INFO=()
+if [ "$ARCH" == "arm" ] || [ "$ARCH" == "arm64" ] || [ "$ARCH" == "aarch64" ]; then
     FILE_INFO=("https://github.com/eooce/test/releases/download/arm64/bot13 bot" "https://github.com/eooce/test/releases/download/ARM/web web" "https://github.com/eooce/test/releases/download/ARM/swith npm")
 elif [ "$ARCH" == "amd64" ] || [ "$ARCH" == "x86_64" ] || [ "$ARCH" == "x86" ]; then
     FILE_INFO=("https://github.com/eooce/test/releases/download/amd64/bot13 bot" "https://github.com/eooce/test/releases/download/123/web web" "https://github.com/eooce/test/releases/download/bulid/swith npm")
@@ -98,67 +127,42 @@ for entry in "${FILE_INFO[@]}"; do
     URL=$(echo "$entry" | cut -d ' ' -f 1)
     NEW_FILENAME=$(echo "$entry" | cut -d ' ' -f 2)
     FILENAME="$DOWNLOAD_DIR/$NEW_FILENAME"
-    curl -L -sS -o "$FILENAME" "$URL"
-    echo "Downloading $FILENAME"
+    if [ -e "$FILENAME" ]; then
+        echo -e "\e[1;32m$FILENAME already exists,Skipping download\e[0m"
+    else
+        curl -L -sS -o "$FILENAME" "$URL"
+        echo -e "\e[1;32mDownloading $FILENAME\e[0m"
+    fi
 done
 wait
-for entry in "${FILE_INFO[@]}"; do
-    NEW_FILENAME=$(echo "$entry" | cut -d ' ' -f 2)
-    FILENAME="$DOWNLOAD_DIR/$NEW_FILENAME"
-    chmod +x "$FILENAME"
-    echo "$FILENAME downloaded and permission successfully "
-done
-
-#生成固定隧道配置文件
-argo_configure() {
-  if [[ -z $ARGO_AUTH || -z $ARGO_DOMAIN ]]; then
-    echo "ARGO_DOMAIN or ARGO_AUTH variable is empty, use quick tunnel"
-    return
-  fi
-
-  if [[ $ARGO_AUTH =~ TunnelSecret ]]; then
-    echo $ARGO_AUTH > ${FILE_PATH}/tunnel.json
-    cat > ${FILE_PATH}/tunnel.yml << EOF
-tunnel: $(cut -d\" -f12 <<< "$ARGO_AUTH")
-credentials-file: ${FILE_PATH}/tunnel.json
-protocol: http2
-
-ingress:
-  - hostname: $ARGO_DOMAIN
-    service: http://localhost:$ARGO_PORT
-    originRequest:
-      noTLSVerify: true
-  - service: http_status:404
-EOF
-  else
-    echo "ARGO_AUTH mismatch TunnelSecret,use token connect to tunnel"
-  fi
-}
-argo_configure
-sleep 2
 
 run() {
-  if [ -e ${FILE_PATH}/npm ]; then
-    	tlsPorts=("443" "8443" "2096" "2087" "2053")
-    	if [[ "${tlsPorts[*]}" =~ "${NEZHA_PORT}" ]]; then
-    		NEZHA_TLS="--tls"
-    	else
-    		NEZHA_TLS=""
-    	fi
+  if [ -e "${FILE_PATH}/npm" ]; then
+    chmod 777 "${FILE_PATH}/npm"
+    tlsPorts=("443" "8443" "2096" "2087" "2083" "2053")
+    if [[ "${tlsPorts[*]}" =~ "${NEZHA_PORT}" ]]; then
+      NEZHA_TLS="--tls"
+    else
+      NEZHA_TLS=""
+    fi
     if [ -n "$NEZHA_SERVER" ] && [ -n "$NEZHA_PORT" ] && [ -n "$NEZHA_KEY" ]; then
         nohup ${FILE_PATH}/npm -s ${NEZHA_SERVER}:${NEZHA_PORT} -p ${NEZHA_KEY} ${NEZHA_TLS} >/dev/null 2>&1 &
-        sleep 2
+		    sleep 2
+        pgrep -x "npm" > /dev/null && echo -e "\e[1;32mnpm is running\e[0m" || { echo -e "\e[1;35mnpm is not running, restarting...\e[0m"; pkill -x "npm" && nohup "${FILE_PATH}/npm" -s ${NEZHA_SERVER}:${NEZHA_PORT} -p ${NEZHA_KEY} ${NEZHA_TLS} >/dev/null 2>&1 & sleep 2; echo -e "\e[1;32mnpm restarted\e[0m"; }
     else
-        echo "NEZHA variable is empty,skip runing"
+        echo -e "\e[1;35mNEZHA variable is empty,skiping runing\e[0m"
     fi
   fi
 
-  if [ -e ${FILE_PATH}/web ]; then
+  if [ -e "${FILE_PATH}/web" ]; then
+    chmod 777 "${FILE_PATH}/web"
     nohup ${FILE_PATH}/web -c ${FILE_PATH}/config.json >/dev/null 2>&1 &
-    sleep 2
+	  sleep 2
+    pgrep -x "web" > /dev/null && echo -e "\e[1;32mweb is running\e[0m" || { echo -e "\e[1;35mweb is not running, restarting...\e[0m"; pkill -x "web" && nohup "${FILE_PATH}/web" -c ${FILE_PATH}/config.json >/dev/null 2>&1 & sleep 2; echo -e "\e[1;32mweb restarted\e[0m"; }
   fi
 
-  if [ -e ${FILE_PATH}/bot ]; then
+  if [ -e "${FILE_PATH}/bot" ]; then
+    chmod 777 "${FILE_PATH}/bot"
     if [[ $ARGO_AUTH =~ ^[A-Z0-9a-z=]{120,250}$ ]]; then
       args="tunnel --edge-ip-version auto --no-autoupdate --protocol http2 run --token ${ARGO_AUTH}"
     elif [[ $ARGO_AUTH =~ TunnelSecret ]]; then
@@ -167,48 +171,51 @@ run() {
       args="tunnel --edge-ip-version auto --no-autoupdate --protocol http2 --logfile ${FILE_PATH}/boot.log --loglevel info --url http://localhost:$ARGO_PORT"
     fi
     nohup ${FILE_PATH}/bot $args >/dev/null 2>&1 &
-    sleep 3
+    sleep 2
+    pgrep -x "bot" > /dev/null && echo -e "\e[1;32mbot is running\e[0m" || { echo -e "\e[1;35mbot is not running, restarting...\e[0m"; pkill -x "bot" && nohup "${FILE_PATH}/bot" $args >/dev/null 2>&1 & sleep 2; echo -e "\e[1;32mbot restarted\e[0m"; }
   fi
 } 
 run
+sleep 4
 
 function get_argodomain() {
   if [[ -n $ARGO_AUTH ]]; then
     echo "$ARGO_DOMAIN"
   else
-    cat ${FILE_PATH}/boot.log | grep trycloudflare.com | awk 'NR==2{print}' | awk -F// '{print $2}' | awk '{print $1}'
+    grep -oE 'https://[[:alnum:]+\.-]+\.trycloudflare\.com' "${FILE_PATH}/boot.log" | sed 's@https://@@'
   fi
 }
 
 generate_links() {
   argodomain=$(get_argodomain)
+  echo -e "\e[1;32mArgoDomain:\e[1;35m${argodomain}\e[0m"
   sleep 2
 
   isp=$(curl -s https://speed.cloudflare.com/meta | awk -F\" '{print $26"-"$18}' | sed -e 's/ /_/g')
   sleep 2
 
-  VMESS="{ \"v\": \"2\", \"ps\": \"${NAME}-${isp}\", \"add\": \"${CFIP}\", \"port\": \"443\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }"
+  VMESS="{ \"v\": \"2\", \"ps\": \"${NAME}-${isp}\", \"add\": \"${CFIP}\", \"port\": \"${CFPORT}\", \"id\": \"${UUID}\", \"aid\": \"0\", \"scy\": \"none\", \"net\": \"ws\", \"type\": \"none\", \"host\": \"${argodomain}\", \"path\": \"/vmess?ed=2048\", \"tls\": \"tls\", \"sni\": \"${argodomain}\", \"alpn\": \"\" }"
 
   cat > ${FILE_PATH}/list.txt <<EOF
-vless://${UUID}@${CFIP}:443?encryption=none&security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Fvless?ed=2048#${NAME}-${isp}
+vless://${UUID}@${CFIP}:${CFPORT}?encryption=none&security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Fvless%3Fed%3D2048#${NAME}-${isp}
 
 vmess://$(echo "$VMESS" | base64 -w0)
 
-trojan://${UUID}@${CFIP}:443?security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Ftrojan?ed=2048#${NAME}-${isp}
+trojan://${UUID}@${CFIP}:${CFPORT}?security=tls&sni=${argodomain}&type=ws&host=${argodomain}&path=%2Ftrojan%3Fed%3D2048#${NAME}-${isp}
 EOF
 
   base64 -w0 ${FILE_PATH}/list.txt > ${FILE_PATH}/sub.txt
   cat ${FILE_PATH}/sub.txt
-  echo -e "\nFile saved successfully"
-  sleep 8  
-  rm -rf ${FILE_PATH}/list.txt ${FILE_PATH}/boot.log ${FILE_PATH}/config.json ${FILE_PATH}/tunnel.json ${FILE_PATH}/tunnel.yml
+  echo -e "\n\e[1;32m${FILE_PATH}/sub.txt saved successfully\e[0m"
+  sleep 5  
+  rm -rf ${FILE_PATH}/list.txt ${FILE_PATH}/boot.log ${FILE_PATH}/config.json ${FILE_PATH}/tunnel.json ${FILE_PATH}/tunnel.yml ${FILE_PATH}/npm ${FILE_PATH}/web ${FILE_PATH}/bot
 }
 generate_links
+echo -e "\e[1;96mRunning done!\e[0m"
+echo -e "\e[1;96mThank you for using this script,enjoy!\e[0m"
 sleep 15
 clear
 
-chmod +x PocketMnie-MP.phar
-export PATH=/home/container/bin/php7/bin:$PATH
-php ./PocketMnie-MP.phar
+chmod +x ${GAME_FILE} && java -Xms128M -XX:MaxRAMPercentage=95.0 -jar ${GAME_FILE}
 
 tail -f /dev/null
